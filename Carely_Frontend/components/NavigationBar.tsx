@@ -16,7 +16,7 @@ export default function NavigationBar({ style }: NavigationBarProps) {
         router.push('/(tabs)');
         break;
       case 'appointments':
-        router.push('/(apponintment-mgt)/appointments');
+        router.push('/(apponintment-mgt)/choose-doctor)');
         break;
       case 'chat':
         router.push('/(communication-mgt)/chat');
