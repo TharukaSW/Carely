@@ -1,25 +1,38 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
+import { apiFetch } from '../api';
 
 export default function HealthcareRegisterScreen() {
   const [form, setForm] = useState({
     fullName: '',
     profession: '',
     license: '',
+    location: '',
     phone: '',
     email: '',
     password: '',
     confirmPassword: '',
-    location: '',
   });
 
   const handleChange = (key: string, value: string) => {
     setForm({ ...form, [key]: value });
   };
 
-  const handleRegister = () => {
-    router.replace('/login');
+
+  const handleRegister = async () => {
+    try {
+      // You may want to validate form fields here
+      const res = await apiFetch('/register/healthcare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      Alert.alert('Success', 'Registration successful!');
+      router.replace('/login');
+    } catch (err: any) {
+      Alert.alert('Registration Failed', err.message || 'Something went wrong');
+    }
   };
 
   const handleLogin = () => {
@@ -32,12 +45,12 @@ export default function HealthcareRegisterScreen() {
       <View style={styles.form}>
         <TextInput style={styles.input} placeholder="Full Name" placeholderTextColor="#1593B5" value={form.fullName} onChangeText={t => handleChange('fullName', t)} />
         <TextInput style={styles.input} placeholder="Profession" placeholderTextColor="#1593B5" value={form.profession} onChangeText={t => handleChange('profession', t)} />
-        <TextInput style={styles.input} placeholder="Medical License" placeholderTextColor="#1593B5" value={form.license} onChangeText={t => handleChange('license', t)} />
+        <TextInput style={styles.input} placeholder="License Number" placeholderTextColor="#1593B5" value={form.license} onChangeText={t => handleChange('license', t)} />
+        <TextInput style={styles.input} placeholder="Location" placeholderTextColor="#1593B5" value={form.location} onChangeText={t => handleChange('location', t)} />
         <TextInput style={styles.input} placeholder="Phone Number" placeholderTextColor="#1593B5" keyboardType="phone-pad" value={form.phone} onChangeText={t => handleChange('phone', t)} />
         <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#1593B5" keyboardType="email-address" value={form.email} onChangeText={t => handleChange('email', t)} />
         <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#1593B5" secureTextEntry value={form.password} onChangeText={t => handleChange('password', t)} />
         <TextInput style={styles.input} placeholder="Confirm Password" placeholderTextColor="#1593B5" secureTextEntry value={form.confirmPassword} onChangeText={t => handleChange('confirmPassword', t)} />
-        <TextInput style={styles.input} placeholder="Available Location" placeholderTextColor="#1593B5" value={form.location} onChangeText={t => handleChange('location', t)} />
       </View>
       <TouchableOpacity style={styles.registerBtn} onPress={handleRegister}>
         <Text style={styles.registerText}>Register</Text>

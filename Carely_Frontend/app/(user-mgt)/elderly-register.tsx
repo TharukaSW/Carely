@@ -1,16 +1,17 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
+import { apiFetch } from '../api';
 
 export default function ElderlyRegisterScreen() {
   const [form, setForm] = useState({
     fullName: '',
     dob: '',
     gender: '',
-    phone: '',
     address: '',
-    email: '',
     familyContact: '',
+    email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
   });
@@ -19,8 +20,20 @@ export default function ElderlyRegisterScreen() {
     setForm({ ...form, [key]: value });
   };
 
-  const handleRegister = () => {
-    router.replace('/login');
+
+  const handleRegister = async () => {
+    try {
+      // You may want to validate form fields here
+      const res = await apiFetch('/register/elderly', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      Alert.alert('Success', 'Registration successful!');
+      router.replace('/login');
+    } catch (err: any) {
+      Alert.alert('Registration Failed', err.message || 'Something went wrong');
+    }
   };
 
   const handleLogin = () => {
@@ -34,10 +47,10 @@ export default function ElderlyRegisterScreen() {
         <TextInput style={styles.input} placeholder="Full Name" placeholderTextColor="#1593B5" value={form.fullName} onChangeText={t => handleChange('fullName', t)} />
         <TextInput style={styles.input} placeholder="Date of Birth" placeholderTextColor="#1593B5" value={form.dob} onChangeText={t => handleChange('dob', t)} />
         <TextInput style={styles.input} placeholder="Gender" placeholderTextColor="#1593B5" value={form.gender} onChangeText={t => handleChange('gender', t)} />
-        <TextInput style={styles.input} placeholder="Phone Number" placeholderTextColor="#1593B5" keyboardType="phone-pad" value={form.phone} onChangeText={t => handleChange('phone', t)} />
         <TextInput style={styles.input} placeholder="Address" placeholderTextColor="#1593B5" value={form.address} onChangeText={t => handleChange('address', t)} />
+        <TextInput style={styles.input} placeholder="Family Contact" placeholderTextColor="#1593B5" value={form.familyContact} onChangeText={t => handleChange('familyContact', t)} />
         <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#1593B5" keyboardType="email-address" value={form.email} onChangeText={t => handleChange('email', t)} />
-        <TextInput style={styles.input} placeholder="Family Member  Contact" placeholderTextColor="#1593B5" value={form.familyContact} onChangeText={t => handleChange('familyContact', t)} />
+        <TextInput style={styles.input} placeholder="Phone" placeholderTextColor="#1593B5" keyboardType="phone-pad" value={form.phone} onChangeText={t => handleChange('phone', t)} />
         <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#1593B5" secureTextEntry value={form.password} onChangeText={t => handleChange('password', t)} />
         <TextInput style={styles.input} placeholder="Confirm Password" placeholderTextColor="#1593B5" secureTextEntry value={form.confirmPassword} onChangeText={t => handleChange('confirmPassword', t)} />
       </View>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
+import { apiFetch } from './api';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -11,21 +12,15 @@ export default function LoginScreen() {
   const handleLogin = async () => {
     setLoading(true);
     try {
-      // TODO: Replace with your backend API call
-      const res = await fetch('http://localhost:3000/api/auth/login', {
+      const data = await apiFetch('/register/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      const data = await res.json();
-      if (res.ok) {
-        // Save token/user info as needed
-        router.replace('/(tabs)'); // Navigate to home/tabs after login
-      } else {
-        Alert.alert('Login Failed', data.error || 'Invalid credentials');
-      }
-    } catch (err) {
-      Alert.alert('Error', 'Could not connect to server');
+      // Save token/user info as needed
+      router.replace('/(tabs)'); // Navigate to home/tabs after login
+    } catch (err: any) {
+      Alert.alert('Login Failed', err.message || 'Invalid credentials');
     } finally {
       setLoading(false);
     }

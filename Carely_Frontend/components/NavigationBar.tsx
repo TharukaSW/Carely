@@ -16,13 +16,13 @@ export default function NavigationBar({ style }: NavigationBarProps) {
         router.push('/(tabs)');
         break;
       case 'appointments':
-        router.push('/(apponintment-mgt)/choose-doctor)');
+        router.push('/(appointment-mgt)/appointments');
         break;
       case 'chat':
         router.push('/(communication-mgt)/chat');
         break;
       case 'profile':
-        router.push('/(tabs)/profile');
+        router.push('/(tabs)/profile'); 
         break;
     }
   };
@@ -32,7 +32,7 @@ export default function NavigationBar({ style }: NavigationBarProps) {
       case 'home':
         return pathname === '/(tabs)' || pathname === '/(tabs)/';
       case 'appointments':
-        return pathname.includes('/apponintment-mgt/appointments');
+        return pathname.includes('/appointment-mgt/appointments');
       case 'chat':
         return pathname.includes('/communication-mgt/chat');
       case 'profile':

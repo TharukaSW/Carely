@@ -1,6 +1,7 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
+import { apiFetch } from '../api';
 
 export default function CaregiverRegisterScreen() {
   const [form, setForm] = useState({
@@ -11,15 +12,27 @@ export default function CaregiverRegisterScreen() {
     email: '',
     password: '',
     confirmPassword: '',
-    image: '',
+    image: '', // optional image url or base64
   });
 
   const handleChange = (key: string, value: string) => {
     setForm({ ...form, [key]: value });
   };
 
-  const handleRegister = () => {
-    router.replace('/login');
+
+  const handleRegister = async () => {
+    try {
+      // You may want to validate form fields here
+      const res = await apiFetch('/register/caregiver', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      Alert.alert('Success', 'Registration successful!');
+      router.replace('/login');
+    } catch (err: any) {
+      Alert.alert('Registration Failed', err.message || 'Something went wrong');
+    }
   };
 
   const handleLogin = () => {
@@ -32,12 +45,12 @@ export default function CaregiverRegisterScreen() {
       <View style={styles.form}>
         <TextInput style={styles.input} placeholder="Full Name" placeholderTextColor="#1593B5" value={form.fullName} onChangeText={t => handleChange('fullName', t)} />
         <TextInput style={styles.input} placeholder="Address" placeholderTextColor="#1593B5" value={form.address} onChangeText={t => handleChange('address', t)} />
-        <TextInput style={styles.input} placeholder="NIC Number" placeholderTextColor="#1593B5" value={form.nic} onChangeText={t => handleChange('nic', t)} />
+        <TextInput style={styles.input} placeholder="NIC" placeholderTextColor="#1593B5" value={form.nic} onChangeText={t => handleChange('nic', t)} />
         <TextInput style={styles.input} placeholder="Phone Number" placeholderTextColor="#1593B5" keyboardType="phone-pad" value={form.phone} onChangeText={t => handleChange('phone', t)} />
         <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#1593B5" keyboardType="email-address" value={form.email} onChangeText={t => handleChange('email', t)} />
         <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#1593B5" secureTextEntry value={form.password} onChangeText={t => handleChange('password', t)} />
         <TextInput style={styles.input} placeholder="Confirm Password" placeholderTextColor="#1593B5" secureTextEntry value={form.confirmPassword} onChangeText={t => handleChange('confirmPassword', t)} />
-        <TextInput style={styles.input} placeholder="Upload your Image" placeholderTextColor="#1593B5" value={form.image} onChangeText={t => handleChange('image', t)} />
+        <TextInput style={styles.input} placeholder="Image URL (Optional)" placeholderTextColor="#1593B5" value={form.image} onChangeText={t => handleChange('image', t)} />
       </View>
       <TouchableOpacity style={styles.registerBtn} onPress={handleRegister}>
         <Text style={styles.registerText}>Register</Text>

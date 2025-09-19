@@ -34,7 +34,7 @@ export default function HomeScreen() {
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCard}>
               <Ionicons name="calendar" size={32} color="#1593B5" />
-              <Text style={styles.actionText} onPress={() => router.push('/(apponintment-mgt)/appointments')}>Appointments</Text>
+              <Text style={styles.actionText} onPress={() => router.push('/(appointment-mgt)/appointments')}>Appointments</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionCard}>
               <Ionicons name="medical-outline" size={32} color="#1593B5" />
