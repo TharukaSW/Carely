@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TextInput, Button, StyleSheet, Alert } from 'react-native';
 import { useRouter } from 'expo-router';
 import { apiFetch } from './api';
+import { setUser } from './session';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -17,7 +18,7 @@ export default function LoginScreen() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-      // Save token/user info as needed
+      await setUser(data);
       router.replace('/(tabs)'); // Navigate to home/tabs after login
     } catch (err: any) {
       Alert.alert('Login Failed', err.message || 'Invalid credentials');

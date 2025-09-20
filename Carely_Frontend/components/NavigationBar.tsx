@@ -19,10 +19,10 @@ export default function NavigationBar({ style }: NavigationBarProps) {
         router.push('/(appointment-mgt)/appointments');
         break;
       case 'chat':
-        router.push('/(communication-mgt)/chat');
+        router.push('/(communication-mgt)/chat-list');
         break;
       case 'profile':
-        router.push('/(tabs)/profile'); 
+        router.push('/(user-mgt)/my-profile'); 
         break;
     }
   };
@@ -34,9 +34,9 @@ export default function NavigationBar({ style }: NavigationBarProps) {
       case 'appointments':
         return pathname.includes('/appointment-mgt/appointments');
       case 'chat':
-        return pathname.includes('/communication-mgt/chat');
+        return pathname.includes('/communication-mgt/chat') || pathname.includes('/communication-mgt/chat-list') || pathname.includes('/communication-mgt/chat-thread');
       case 'profile':
-        return pathname.includes('/profile');
+        return pathname.includes('/my-profile');
       default:
         return false;
     }
@@ -64,11 +64,11 @@ export default function NavigationBar({ style }: NavigationBarProps) {
         <Ionicons 
           name={iconName} 
           size={24} 
-          color={active ? '#1593B5' : '#8CB6C1'} 
+          color={active ? '#007AFF' : '#8E8E93'} 
         />
         <Text style={[
           styles.tabLabel, 
-          { color: active ? '#1593B5' : '#8CB6C1' }
+          { color: active ? '#007AFF' : '#8E8E93' }
         ]}>
           {label}
         </Text>
@@ -109,9 +109,9 @@ export default function NavigationBar({ style }: NavigationBarProps) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: '#FAFAFA',
     borderTopWidth: 1,
-    borderTopColor: '#E0E0E0',
+    borderTopColor: '#E5E5E7',
     paddingVertical: 8,
     paddingHorizontal: 4,
     justifyContent: 'space-around',

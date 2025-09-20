@@ -91,6 +91,19 @@ router.get('/debug/all', wrap(async (_req, res) => {
   res.json(list);
 }));
 
+// List users (safe) - optional excludeId query to omit current user
+router.get('/users', wrap(async (req, res) => {
+  const excludeId = (req.query.excludeId as string) || '';
+  const snap = await db.collection('users').limit(200).get();
+  const list = snap.docs
+    .map((d: FirebaseFirestore.QueryDocumentSnapshot) => {
+      const { passwordHash, ...rest } = d.data() as any;
+      return { id: d.id, ...rest };
+    })
+    .filter((u: any) => (excludeId ? u.id !== excludeId : true));
+  res.json(list);
+}));
+
 router.get('/id/:id', wrap(async (req, res) => {
   const doc = await db.collection('users').doc(req.params.id).get();
   if (!doc.exists) return res.status(404).json({ error: 'Not found' });
@@ -166,6 +179,43 @@ router.post('/profile/image', wrap(async (req, res) => {
   const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filename}`;
   await db.collection('users').doc(user.id).update({ profileImage: publicUrl });
   res.json({ message: 'Uploaded', url: publicUrl });
+}));
+
+// Enhanced profile update endpoint
+router.put('/profile/enhanced', wrap(async (req, res) => {
+  const { email, fullName, phone, bio, location, dateOfBirth } = req.body || {};
+  if (!email) return res.status(400).json({ error: 'email required' });
+  const user = await getUserByEmail(email);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  
+  const updates: Record<string, any> = {};
+  if (typeof fullName !== 'undefined') updates.fullName = fullName;
+  if (typeof phone !== 'undefined') updates.phone = phone;
+  if (typeof bio !== 'undefined') updates.bio = bio;
+  if (typeof location !== 'undefined') updates.location = location;
+  if (typeof dateOfBirth !== 'undefined') updates.dateOfBirth = dateOfBirth;
+  updates.updatedAt = new Date();
+
+  await db.collection('users').doc(user.id).update(updates);
+  const updated = await db.collection('users').doc(user.id).get();
+  const { passwordHash, ...safe } = updated.data() as any;
+  res.json({ message: 'Profile updated', user: { id: updated.id, ...safe } });
+}));
+
+// Delete user account (soft delete)
+router.delete('/profile', wrap(async (req, res) => {
+  const { email } = req.body || {};
+  if (!email) return res.status(400).json({ error: 'email required' });
+  const user = await getUserByEmail(email);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  
+  // Soft delete - mark as deleted instead of removing completely
+  await db.collection('users').doc(user.id).update({ 
+    deleted: true, 
+    deletedAt: new Date(),
+    email: `deleted_${user.id}@deleted.com` // Anonymize email
+  });
+  res.json({ message: 'Account deleted successfully' });
 }));
 
 export default router;

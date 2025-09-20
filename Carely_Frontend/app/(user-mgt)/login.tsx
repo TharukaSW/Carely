@@ -1,14 +1,27 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { apiFetch } from '../api';
+import { setUser } from '../session';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [remember, setRemember] = useState(false);
 
-  const handleLogin = () => {
-    router.replace('/(tabs)');
+  const handleLogin = async () => {
+    try {
+      const data = await apiFetch('/register/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      await setUser(data);
+      router.replace('/(tabs)');
+    } catch (e: any) {
+      // You might add a toast/alert here
+      console.warn('Login failed', e?.message);
+    }
   };
 
   const handleRegister = () => {
