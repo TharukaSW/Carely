@@ -1,50 +1,21 @@
-import React, { useLayoutEffect } from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useNavigation, useRouter } from "expo-router"; // Add this import
+import React, { useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
-export default function PaymentSuccess() {
-  const router = useRouter(); // Use the router hook
-
-  const navigation = useNavigation();
-
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerShown: false, // hides the black bar
-    });
-  }, [navigation]);
-
+export default function PaymentSuccessScreen() {
+  useEffect(() => {
+    const t = setTimeout(() => router.push({ pathname: '/(tabs)' }), 1500);
+    return () => clearTimeout(t);
+  }, []);
   return (
     <View style={styles.container}>
-      {/* Success Icon */}
-      <View style={styles.iconContainer}>
-        <Ionicons name="checkmark-circle" size={120} color="#007CA5" />
-      </View>
-
-      {/* Success Message */}
-      <Text style={styles.successText}>Payment Done</Text>
-
-      {/* Buttons */}
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity
-          style={styles.secondaryButton}
-          onPress={() => router.push("/")} // Navigate to home
-        >
-          <Text style={styles.secondaryButtonText}>Back to Home</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.primaryButton, { marginTop: 12 }]}
-          onPress={() => alert("Invoice Downloaded")}
-        >
-          <Text style={styles.primaryButtonText}>Download Invoice</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.secondaryButton, { marginTop: 12 }]}
-          onPress={() => router.push("/payment-history")} // Navigate to history
-        >
-          <Text style={styles.secondaryButtonText}>View Payment History</Text>
+      <View style={styles.content}>
+        <Ionicons name="checkmark-circle" size={80} color="#34C759" style={{ marginBottom: 24 }} />
+        <Text style={styles.title}>Payment Successful!</Text>
+        <Text style={styles.subtitle}>Your appointment has been booked and payment processed.</Text>
+        <TouchableOpacity style={styles.homeBtn} onPress={() => router.push({ pathname: '/(tabs)' })}>
+          <Text style={styles.homeBtnText}>Go to Home</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -52,59 +23,10 @@ export default function PaymentSuccess() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 20,
-  },
-  iconContainer: {
-    marginBottom: 30,
-  },
-  successText: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#007CA5",
-    marginBottom: 50,
-  },
-  buttonContainer: {
-    width: "100%",
-    position: "absolute",
-    bottom: 40,
-    paddingHorizontal: 20,
-  },
-  primaryButton: {
-    backgroundColor: "#007CA5",
-    paddingVertical: 15,
-    borderRadius: 24,
-    alignItems: "center",
-    marginTop: 12,
-    shadowColor: "#000",
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 5,
-    elevation: 3,
-  },
-  primaryButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  secondaryButton: {
-    backgroundColor: "#f2f2f2",
-    paddingVertical: 15,
-    borderRadius: 24,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  secondaryButtonText: {
-    color: "#007CA5",
-    fontSize: 16,
-    fontWeight: "500",
-  },
+  container: { flex: 1, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center' },
+  content: { alignItems: 'center', paddingHorizontal: 32 },
+  title: { fontSize: 24, fontWeight: '700', color: '#34C759', marginBottom: 12 },
+  subtitle: { fontSize: 16, color: '#374151', marginBottom: 32, textAlign: 'center' },
+  homeBtn: { backgroundColor: '#007AFF', borderRadius: 28, paddingVertical: 16, paddingHorizontal: 40, alignItems: 'center' },
+  homeBtnText: { color: '#fff', fontSize: 18, fontWeight: '700' },
 });
