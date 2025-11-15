@@ -1,48 +1,57 @@
 import { z } from 'zod';
 
 const baseUser = {
-  fullName: z.string().min(2),
-  email: z.string().email(),
-  phone: z.string().min(5).optional(),
-  password: z.string().min(6),
+  fullName: z.string().min(2, 'Full name is too short'),
+  email: z.string().email('Valid email required'),
+  phone: z.string().min(5, 'Phone number is too short').optional(),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  confirmPassword: z.string().min(6, 'Confirm password must be at least 6 characters'),
 };
 
-export const elderlySchema = z.object({
+export const elderSchema = z.object({
   ...baseUser,
-  dob: z.string().optional(),
+  dateOfBirth: z.string().optional(),
   gender: z.string().optional(),
   address: z.string().optional(),
-  familyContact: z.string().optional(),
-  confirmPassword: z.string().min(6),
+  guardianContact: z.string().min(5).optional(),
+  guardianEmail: z.string().email().optional(),
+  sosNote: z.string().optional(),
+  caregiverPreference: z.string().optional(),
 });
 
-export const familySchema = z.object({
+export const guardianSchema = z.object({
   ...baseUser,
   relationship: z.string().optional(),
-  elderlyId: z.string().optional(),
-  confirmPassword: z.string().min(6),
+  elderEmail: z.string().email().optional(),
+  elderName: z.string().optional(),
+  address: z.string().optional(),
 });
 
 export const caregiverSchema = z.object({
   ...baseUser,
   address: z.string().optional(),
   nic: z.string().optional(),
-  image: z.string().optional(),
-  confirmPassword: z.string().min(6),
-});
-
-export const healthcareSchema = z.object({
-  ...baseUser,
-  profession: z.string().optional(),
-  license: z.string().optional(),
   location: z.string().optional(),
-  confirmPassword: z.string().min(6),
+  availability: z.string().optional(),
+  experienceYears: z.coerce.number().min(0).optional(),
+  skills: z.array(z.string()).optional(),
+  preferredElderGender: z.enum(['male', 'female', 'any']).optional(),
+  bio: z.string().optional(),
 });
 
-export type ElderlyInput = z.infer<typeof elderlySchema>;
-export type FamilyInput = z.infer<typeof familySchema>;
+export const doctorSchema = z.object({
+  ...baseUser,
+  specialty: z.string().optional(),
+  licenseNumber: z.string().optional(),
+  hospital: z.string().optional(),
+  clinicAddress: z.string().optional(),
+  location: z.string().optional(),
+});
+
+export type ElderInput = z.infer<typeof elderSchema>;
+export type GuardianInput = z.infer<typeof guardianSchema>;
 export type CaregiverInput = z.infer<typeof caregiverSchema>;
-export type HealthcareInput = z.infer<typeof healthcareSchema>;
+export type DoctorInput = z.infer<typeof doctorSchema>;
 
 export const profileUpdateSchema = z.object({
   id: z.string().optional(),
@@ -51,6 +60,13 @@ export const profileUpdateSchema = z.object({
   phone: z.string().min(5).optional(),
   address: z.string().optional(),
   profileImage: z.string().url().optional(),
+  bio: z.string().optional(),
+  location: z.string().optional(),
+  emergencyContact: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  guardianContact: z.string().optional(),
+  role: z.enum(['elder', 'guardian', 'caregiver', 'doctor']).optional(),
+  roleDetails: z.record(z.any()).optional(),
 });
 
 export const passwordChangeSchema = z.object({

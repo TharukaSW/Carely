@@ -5,12 +5,70 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { getUser, clearUser, SessionUser } from '../session';
 import { apiFetch } from '../api';
 import { deleteUserProfile } from '../services/profile';
+import { listInvitations, respondToInvitation } from '../services/invitations';
+import { listMedicalRecords } from '../services/medicalHistory';
 import { router } from 'expo-router';
 import NavigationBar from '@/components/NavigationBar';
 
 export default function MyProfileScreen() {
   const [user, setUserState] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(true);
+  const [invitations, setInvitations] = useState<any[]>([]);
+  const [invitesLoading, setInvitesLoading] = useState(false);
+  const [medicalRecords, setMedicalRecords] = useState<any[]>([]);
+  const [eventsError, setEventsError] = useState<string>('');
+
+  const loadAssociatedData = async (profile: SessionUser) => {
+    if (!profile?.id) {
+      setInvitations([]);
+      setMedicalRecords([]);
+      return;
+    }
+    const id = String(profile.id);
+    setEventsError('');
+    try {
+      setInvitesLoading(true);
+      if (profile.role === 'guardian') {
+        const list = await listInvitations({ guardianId: id });
+        setInvitations(list);
+      } else if (profile.role === 'caregiver') {
+        const list = await listInvitations({ caregiverId: id });
+        setInvitations(list);
+      } else {
+        setInvitations([]);
+      }
+    } catch (err: any) {
+      setEventsError(err?.message || 'Failed to load invitations');
+      setInvitations([]);
+    } finally {
+      setInvitesLoading(false);
+    }
+    try {
+      const records = await listMedicalRecords({
+        viewerId: id,
+        patientId: profile.role === 'elder' ? id : undefined,
+        guardianId: profile.role === 'guardian' ? id : undefined,
+        caregiverId: profile.role === 'caregiver' ? id : undefined,
+        doctorId: profile.role === 'doctor' ? id : undefined,
+        limit: 5,
+      });
+      setMedicalRecords(records || []);
+    } catch (err: any) {
+      setEventsError((prev) => prev || err?.message || 'Failed to load medical history');
+      setMedicalRecords([]);
+    }
+  };
+
+  const handleInvitationResponse = async (invitationId: string, status: 'accepted' | 'declined') => {
+    if (!user?.id) return;
+    try {
+      await respondToInvitation(invitationId, status, { responderId: String(user.id) });
+      await loadAssociatedData(user);
+      Alert.alert('Invitation Updated', `Invitation ${status}.`);
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Unable to update invitation');
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -21,11 +79,14 @@ export default function MyProfileScreen() {
           return;
         }
         setUserState(local);
+        let profile = local;
         // Optional: refresh from backend for latest profile
         try {
           const fresh = await apiFetch(`/register/me?email=${encodeURIComponent(local.email)}`);
           setUserState(fresh);
+          profile = fresh;
         } catch {}
+        await loadAssociatedData(profile);
       } finally {
         setLoading(false);
       }
@@ -191,11 +252,11 @@ export default function MyProfileScreen() {
                 <Text style={styles.actionSubtext}>Update your personal information</Text>
               </View>
               <MaterialIcons name="chevron-right" size={24} color="#007AFF" />
-            </TouchableOpacity>
-            
-            <TouchableOpacity 
-              style={styles.actionItem} 
-              onPress={() => Alert.alert('TODO','Change password to be implemented')}
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.actionItem} 
+            onPress={() => Alert.alert('TODO','Change password to be implemented')}
             >
               <LinearGradient colors={['#007AFF', '#0051D5']} style={styles.actionIcon}>
                 <Ionicons name="lock-closed" size={18} color="#fff" />
@@ -221,6 +282,108 @@ export default function MyProfileScreen() {
               <MaterialIcons name="chevron-right" size={24} color="#FF3B30" />
             </TouchableOpacity>
           </LinearGradient>
+
+          {(user.role === 'guardian' || user.role === 'caregiver') && (
+            <LinearGradient
+              colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.9)']}
+              style={styles.section}
+            >
+              <View style={styles.sectionHeader}>
+                <LinearGradient colors={['#FF8A65', '#FF7043']} style={styles.sectionIcon}>
+                  <MaterialIcons name="group-add" size={22} color="#fff" />
+                </LinearGradient>
+                <Text style={styles.sectionTitle}>Caregiver Invitations</Text>
+              </View>
+              {invitesLoading ? (
+                <Text style={styles.helperText}>Loading invitations...</Text>
+              ) : invitations.length === 0 ? (
+                <Text style={styles.helperText}>
+                  {user.role === 'guardian'
+                    ? 'You have not sent any caregiver invitations yet.'
+                    : 'No guardian invitations at the moment.'}
+                </Text>
+              ) : (
+                invitations.map((inv: any) => (
+                  <View key={inv.id} style={styles.invitationCard}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.invitationTitle}>
+                        Caregiver {inv.caregiverId || 'N/A'}
+                      </Text>
+                      <Text style={styles.invitationMeta}>
+                        Elder: {inv.elderId || 'N/A'} • Status:{' '}
+                        {String(inv.status || 'pending').toUpperCase()}
+                      </Text>
+                      {inv.message ? (
+                        <Text style={styles.invitationMessage}>{inv.message}</Text>
+                      ) : null}
+                    </View>
+                    {user.role === 'caregiver' &&
+                      String(inv.status || '').toLowerCase() === 'pending' && (
+                        <View style={styles.invitationActions}>
+                          <TouchableOpacity
+                            style={[styles.invitationActionBtn, styles.acceptBtn]}
+                            onPress={() => handleInvitationResponse(inv.id, 'accepted')}
+                          >
+                            <Text style={styles.invitationActionText}>Accept</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={[styles.invitationActionBtn, styles.declineBtn]}
+                            onPress={() => handleInvitationResponse(inv.id, 'declined')}
+                          >
+                            <Text style={styles.invitationActionText}>Decline</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                  </View>
+                ))
+              )}
+            </LinearGradient>
+          )}
+
+          {medicalRecords.length > 0 && (
+            <LinearGradient
+              colors={['rgba(255,255,255,0.95)', 'rgba(255,255,255,0.9)']}
+              style={styles.section}
+            >
+              <View style={styles.sectionHeader}>
+                <LinearGradient colors={['#34D399', '#059669']} style={styles.sectionIcon}>
+                  <MaterialIcons name="medical-services" size={22} color="#fff" />
+                </LinearGradient>
+                <Text style={styles.sectionTitle}>Recent Medical Records</Text>
+              </View>
+              {medicalRecords.map((record: any) => {
+                const createdAt =
+                  record.createdAt?.seconds
+                    ? new Date(record.createdAt.seconds * 1000)
+                    : record.createdAt
+                    ? new Date(record.createdAt)
+                    : null;
+                const displayDate = createdAt
+                  ? createdAt.toLocaleDateString(undefined, {
+                      month: 'short',
+                      day: 'numeric',
+                    })
+                  : 'N/A';
+                return (
+                  <View key={record.id} style={styles.recordCard}>
+                    <Text style={styles.recordTitle}>{record.summary || 'Visit Summary'}</Text>
+                    <Text style={styles.recordMeta}>
+                      Doctor: {record.doctorId || 'N/A'} • Date: {displayDate}
+                    </Text>
+                    {record.diagnosis ? (
+                      <Text style={styles.recordMeta}>Diagnosis: {record.diagnosis}</Text>
+                    ) : null}
+                    {Array.isArray(record.medications) && record.medications.length > 0 ? (
+                      <Text style={styles.recordMeta}>
+                        Medications: {record.medications.join(', ')}
+                      </Text>
+                    ) : null}
+                  </View>
+                );
+              })}
+              {eventsError ? <Text style={styles.helperText}>{eventsError}</Text> : null}
+            </LinearGradient>
+          )}
 
           {/* Settings Section */}
           <LinearGradient
@@ -436,6 +599,77 @@ const styles = StyleSheet.create({
     color: '#2c3e50', 
     fontWeight: '700', 
     fontSize: 20,
+  },
+  helperText: {
+    color: '#7f8c8d',
+    fontSize: 14,
+    fontWeight: '500',
+    marginTop: 8,
+  },
+  invitationCard: {
+    borderWidth: 1,
+    borderColor: 'rgba(255,138,101,0.35)',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
+  invitationTitle: {
+    color: '#2c3e50',
+    fontWeight: '700',
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  invitationMeta: {
+    color: '#7f8c8d',
+    fontSize: 13,
+    marginBottom: 6,
+  },
+  invitationMessage: {
+    color: '#4b5563',
+    fontSize: 14,
+  },
+  invitationActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    gap: 10,
+  },
+  invitationActionBtn: {
+    flex: 1,
+    borderRadius: 20,
+    paddingVertical: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  invitationActionText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  acceptBtn: {
+    backgroundColor: '#10B981',
+  },
+  declineBtn: {
+    backgroundColor: '#EF4444',
+  },
+  recordCard: {
+    borderWidth: 1,
+    borderColor: 'rgba(52, 211, 153, 0.35)',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 12,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+  },
+  recordTitle: {
+    color: '#064E3B',
+    fontWeight: '700',
+    fontSize: 16,
+    marginBottom: 4,
+  },
+  recordMeta: {
+    color: '#047857',
+    fontSize: 13,
+    marginBottom: 4,
   },
 
   // Action Item Styles

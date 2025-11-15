@@ -1,22 +1,22 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
+import { Alert, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
 import { apiFetch } from '../api';
 
-export default function CaregiverRegisterScreen() {
+export default function DoctorRegisterScreen() {
   const [form, setForm] = useState({
     fullName: '',
+    specialty: '',
+    licenseNumber: '',
+    hospital: '',
+    clinicAddress: '',
     location: '',
-    nic: '',
-    availability: '',
-    experienceYears: '',
-    skills: '',
-    bio: '',
     phone: '',
     email: '',
+    bio: '',
     password: '',
     confirmPassword: '',
-    image: '',
   });
 
   const handleChange = (key: string, value: string) => {
@@ -29,18 +29,13 @@ export default function CaregiverRegisterScreen() {
         if (value !== '') acc[key] = value;
         return acc;
       }, {});
-      if (payload.skills) {
-        payload.skills = String(payload.skills)
-          .split(',')
-          .map((s: string) => s.trim())
-          .filter(Boolean);
-      }
-      await apiFetch('/register/caregiver', {
+
+      await apiFetch('/register/doctor', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      Alert.alert('Success', 'Caregiver account created! You can sign in now.');
+      Alert.alert('Success', 'Doctor profile created! You can sign in now.');
       router.replace('/login');
     } catch (err: any) {
       Alert.alert('Registration Failed', err.message || 'Something went wrong');
@@ -51,20 +46,19 @@ export default function CaregiverRegisterScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Caregiver Registration</Text>
+      <Text style={styles.title}>Doctor Registration</Text>
       <View style={styles.form}>
         <TextInput style={styles.input} placeholder="Full Name" placeholderTextColor="#1593B5" value={form.fullName} onChangeText={(t) => handleChange('fullName', t)} />
+        <TextInput style={styles.input} placeholder="Specialty" placeholderTextColor="#1593B5" value={form.specialty} onChangeText={(t) => handleChange('specialty', t)} />
+        <TextInput style={styles.input} placeholder="License Number" placeholderTextColor="#1593B5" value={form.licenseNumber} onChangeText={(t) => handleChange('licenseNumber', t)} />
+        <TextInput style={styles.input} placeholder="Primary Hospital" placeholderTextColor="#1593B5" value={form.hospital} onChangeText={(t) => handleChange('hospital', t)} />
+        <TextInput style={styles.input} placeholder="Clinic Address" placeholderTextColor="#1593B5" value={form.clinicAddress} onChangeText={(t) => handleChange('clinicAddress', t)} />
         <TextInput style={styles.input} placeholder="Location" placeholderTextColor="#1593B5" value={form.location} onChangeText={(t) => handleChange('location', t)} />
-        <TextInput style={styles.input} placeholder="NIC" placeholderTextColor="#1593B5" value={form.nic} onChangeText={(t) => handleChange('nic', t)} />
-        <TextInput style={styles.input} placeholder="Availability (e.g. Weekdays 9-5)" placeholderTextColor="#1593B5" value={form.availability} onChangeText={(t) => handleChange('availability', t)} />
-        <TextInput style={styles.input} placeholder="Experience in Years" placeholderTextColor="#1593B5" keyboardType="numeric" value={form.experienceYears} onChangeText={(t) => handleChange('experienceYears', t)} />
-        <TextInput style={styles.input} placeholder="Skills (comma separated)" placeholderTextColor="#1593B5" value={form.skills} onChangeText={(t) => handleChange('skills', t)} />
-        <TextInput style={[styles.input, styles.multiline]} multiline numberOfLines={3} placeholder="Short bio (optional)" placeholderTextColor="#1593B5" value={form.bio} onChangeText={(t) => handleChange('bio', t)} />
         <TextInput style={styles.input} placeholder="Phone Number" placeholderTextColor="#1593B5" keyboardType="phone-pad" value={form.phone} onChangeText={(t) => handleChange('phone', t)} />
         <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#1593B5" keyboardType="email-address" value={form.email} onChangeText={(t) => handleChange('email', t)} />
+        <TextInput style={[styles.input, styles.multiline]} multiline numberOfLines={3} placeholder="Short Bio (optional)" placeholderTextColor="#1593B5" value={form.bio} onChangeText={(t) => handleChange('bio', t)} />
         <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#1593B5" secureTextEntry value={form.password} onChangeText={(t) => handleChange('password', t)} />
         <TextInput style={styles.input} placeholder="Confirm Password" placeholderTextColor="#1593B5" secureTextEntry value={form.confirmPassword} onChangeText={(t) => handleChange('confirmPassword', t)} />
-        <TextInput style={styles.input} placeholder="Profile Image URL (optional)" placeholderTextColor="#1593B5" value={form.image} onChangeText={(t) => handleChange('image', t)} />
       </View>
       <TouchableOpacity style={styles.registerBtn} onPress={handleRegister}>
         <Text style={styles.registerText}>Register</Text>
@@ -108,6 +102,9 @@ const styles = StyleSheet.create({
     color: '#1593B5',
     marginBottom: 16,
   },
+  multiline: {
+    textAlignVertical: 'top',
+  },
   registerBtn: {
     backgroundColor: '#0593B5',
     borderRadius: 20,
@@ -115,9 +112,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     alignItems: 'center',
     marginTop: 8,
-  },
-  multiline: {
-    textAlignVertical: 'top',
   },
   registerText: {
     color: '#fff',

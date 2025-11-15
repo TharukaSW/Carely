@@ -9,6 +9,8 @@ import chatRoutes from './routes/chat';
 import appointmentsRoutes from './routes/appointments';
 import paymentsRoutes from './routes/payments';
 import medicalExpensesRoutes from './routes/medicalExpenses';
+import medicalHistoryRoutes from './routes/medicalHistory';
+import invitationsRoutes from './routes/invitations';
 import healthRoute from './routes/health';
 import { firebaseReady } from './config/firebase';
 
@@ -25,6 +27,8 @@ app.use('/api/chat', chatRoutes);
 app.use('/api/appointments', appointmentsRoutes);
 app.use('/api/payments', paymentsRoutes);
 app.use('/api/medical-expenses', medicalExpensesRoutes);
+app.use('/api/medical-history', medicalHistoryRoutes);
+app.use('/api/invitations', invitationsRoutes);
 app.use('/', healthRoute);
 
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

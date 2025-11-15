@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, router } from 'expo-router';
 import { createAppointment } from '../services/appointments';
-import { getUser } from '../session';
+import { getUser, SessionUser } from '../session';
 
 import { apiFetch } from '../api';
 
@@ -16,13 +16,50 @@ const SCHEDULE = [
 ];
 const TIMES = ['06.00 - 08.00 PM', '07.00 - 09.00 AM'];
 
+type Role = 'elder' | 'guardian' | 'caregiver' | 'doctor' | string | undefined;
+
+interface DoctorProfile {
+  id: string;
+  fullName: string;
+  specialty: string;
+  rating: number;
+  reviews: number;
+  bio: string;
+  locations: string[];
+  hospital?: string | null;
+  clinicAddress?: string | null;
+  phone?: string | null;
+  email?: string | null;
+}
+
 export default function BookAppointmentScreen() {
   const params = useLocalSearchParams();
   const doctorId = (params as any).doctorId || '';
-  const [doctor, setDoctor] = useState<any>(null);
+  const [doctor, setDoctor] = useState<DoctorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedDate, setSelectedDate] = useState(SCHEDULE[1].date);
   const [selectedTime, setSelectedTime] = useState(TIMES[0]);
+  const [currentUser, setCurrentUser] = useState<SessionUser | null>(null);
+  const [patientId, setPatientId] = useState('');
+  const [appointmentReason, setAppointmentReason] = useState('');
+  const [caregiverId, setCaregiverId] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      const user = await getUser();
+      if (user) {
+        setCurrentUser(user);
+        if ((user as any)?.guardian?.elderId) {
+          setPatientId(String((user as any).guardian.elderId));
+        } else if (user.id) {
+          setPatientId(String(user.id));
+        }
+        if ((user as any)?.guardian?.caregiverId) {
+          setCaregiverId(String((user as any).guardian.caregiverId));
+        }
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     async function fetchDoctor() {
@@ -30,14 +67,24 @@ export default function BookAppointmentScreen() {
       try {
         if (!doctorId) throw new Error('No doctor id provided');
         const res = await apiFetch(`/register/id/${doctorId}`);
+        const profile = res.doctor || {};
+        const fallbackLocation =
+          profile.clinicAddress || profile.location || profile.hospital || res.location || 'Unknown clinic';
+        const locations = Array.isArray(res.locations) && res.locations.length
+          ? res.locations
+          : [fallbackLocation].filter(Boolean);
         setDoctor({
           id: res.id,
           fullName: res.fullName,
-          specialty: res.healthcare?.profession || res.healthcare?.license || 'Healthcare',
+          specialty: profile.specialty || profile.licenseNumber || 'Doctor',
           rating: res.rating || 4.7,
           reviews: res.reviews || 0,
-          bio: res.bio || '',
-          locations: res.locations || [res.healthcare?.location || 'Unknown'],
+          bio: profile.bio || res.bio || '',
+          locations,
+          hospital: profile.hospital || null,
+          clinicAddress: profile.clinicAddress || null,
+          phone: res.phone || null,
+          email: res.email,
         });
       } catch (err: any) {
         setDoctor(null);
@@ -119,20 +166,53 @@ export default function BookAppointmentScreen() {
           </View>
         ))}
       </View>
+      <Text style={styles.sectionTitle}>Appointment Details</Text>
+      <TextInput
+        style={[styles.input, currentUser?.role !== 'guardian' ? styles.inputDisabled : undefined]}
+        placeholder="Elder / Patient ID"
+        placeholderTextColor="#7B8794"
+        value={patientId}
+        onChangeText={setPatientId}
+        editable={currentUser?.role === 'guardian'}
+      />
+      <TextInput
+        style={[styles.input, styles.multilineInput]}
+        multiline
+        numberOfLines={3}
+        placeholder="Reason for visit (optional)"
+        placeholderTextColor="#7B8794"
+        value={appointmentReason}
+        onChangeText={setAppointmentReason}
+      />
+      {currentUser?.role === 'guardian' && (
+        <TextInput
+          style={styles.input}
+          placeholder="Preferred Caregiver ID (optional)"
+          placeholderTextColor="#7B8794"
+          value={caregiverId}
+          onChangeText={setCaregiverId}
+        />
+      )}
       {/* Book Appointment Button */}
       <TouchableOpacity
         style={styles.bookBtn}
         onPress={async () => {
           try {
-            const user = await getUser();
+            const user = currentUser ?? (await getUser());
             if (!user?.id) { alert('Please login first'); return; }
+            if (!patientId) { alert('Please provide the elder ID for this appointment'); return; }
             const date = `2025-07-${selectedDate}`;
             const appt = await createAppointment({
-              userId: String(user.id),
+              patientId: String(patientId),
               doctorId: String(doctor.id),
+              createdById: String(user.id),
+              createdByRole: (user.role as Role) || undefined,
+              guardianId: user.role === 'guardian' ? String(user.id) : undefined,
+              caregiverId: caregiverId ? String(caregiverId) : undefined,
               date,
               time: selectedTime,
-              location: doctor.locations[0],
+              location: doctor.locations[0] || doctor.clinicAddress || doctor.hospital || null,
+              reason: appointmentReason || undefined,
             });
             const amount = 2500; // sample amount
             router.push({ pathname: '/(finance-mgt)/payment', params: { appointmentId: appt.id, amount: String(amount) } });
@@ -179,6 +259,24 @@ const styles = StyleSheet.create({
   locationsRow: { flexDirection: 'row', gap: 12, marginBottom: 8 },
   locationChip: { backgroundColor: '#E8E8E8', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
   locationText: { fontSize: 14, color: '#007AFF' },
+  input: {
+    backgroundColor: '#F5FAFF',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: '#1F2937',
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#D1E2FF',
+  },
+  inputDisabled: {
+    backgroundColor: '#EEF2F6',
+    color: '#94A3B8',
+  },
+  multilineInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
   bookBtn: { backgroundColor: '#007AFF', borderRadius: 28, paddingVertical: 16, alignItems: 'center', marginTop: 24 },
   bookBtnText: { color: '#fff', fontSize: 18, fontWeight: '700' },
 });

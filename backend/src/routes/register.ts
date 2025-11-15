@@ -1,17 +1,32 @@
 import { Router } from 'express';
-import { caregiverSchema, elderlySchema, familySchema, healthcareSchema, profileUpdateSchema, passwordChangeSchema } from '../utils/schemas';
-import { registerCaregiver, registerElderly, registerFamily, registerHealthcare, getUserByEmail, updateUserProfile } from '../services/userService';
-import { storageBucket } from '../config/firebase';
-import crypto from 'crypto';
-const safeUser = (u: any) => {
-  if (!u) return u;
-  const { passwordHash, ...rest } = u;
-  return rest;
-};
-import { db } from '../config/firebase';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+
+import {
+  caregiverSchema,
+  doctorSchema,
+  elderSchema,
+  guardianSchema,
+  passwordChangeSchema,
+  profileUpdateSchema,
+} from '../utils/schemas';
+import {
+  getUserByEmail,
+  registerCaregiver,
+  registerDoctor,
+  registerElder,
+  registerGuardian,
+  updateUserProfile,
+} from '../services/userService';
+import { db, storageBucket } from '../config/firebase';
 
 const router = Router();
+
+const safeUser = (raw: any) => {
+  if (!raw) return raw;
+  const { passwordHash, ...rest } = raw;
+  return rest;
+};
 
 function wrap(handler: (req: any, res: any) => Promise<void>) {
   return async (req: any, res: any, next: any) => {
@@ -36,16 +51,19 @@ function wrap(handler: (req: any, res: any) => Promise<void>) {
   };
 }
 
-router.post('/elderly', wrap(async (req, res) => {
-  console.log('[POST] /api/register/elderly body=', req.body);
-  const parsed = elderlySchema.parse(req.body);
-  const id = await registerElderly(parsed);
+const registerElderHandler = wrap(async (req, res) => {
+  console.log('[POST] /api/register/elder body=', req.body);
+  const parsed = elderSchema.parse(req.body);
+  const id = await registerElder(parsed);
   res.status(201).json({ id });
-}));
+});
+router.post('/elder', registerElderHandler);
+// Backwards compatibility
+router.post('/elderly', registerElderHandler);
 
-router.post('/_debug/elderly-validate', (req, res) => {
+router.post('/_debug/elder-validate', (req, res) => {
   try {
-    const parsed = elderlySchema.parse(req.body);
+    const parsed = elderSchema.parse(req.body);
     return res.json({ ok: true, parsed });
   } catch (err: any) {
     if (err?.name === 'ZodError') return res.status(400).json({ error: 'Validation failed', issues: err.issues });
@@ -53,12 +71,14 @@ router.post('/_debug/elderly-validate', (req, res) => {
   }
 });
 
-router.post('/family', wrap(async (req, res) => {
-  console.log('[POST] /api/register/family body=', req.body);
-  const parsed = familySchema.parse(req.body);
-  const id = await registerFamily(parsed);
+const registerGuardianHandler = wrap(async (req, res) => {
+  console.log('[POST] /api/register/guardian body=', req.body);
+  const parsed = guardianSchema.parse(req.body);
+  const id = await registerGuardian(parsed);
   res.status(201).json({ id });
-}));
+});
+router.post('/guardian', registerGuardianHandler);
+router.post('/family', registerGuardianHandler);
 
 router.post('/caregiver', wrap(async (req, res) => {
   console.log('[POST] /api/register/caregiver body=', req.body);
@@ -67,77 +87,147 @@ router.post('/caregiver', wrap(async (req, res) => {
   res.status(201).json({ id });
 }));
 
-router.post('/healthcare', wrap(async (req, res) => {
-  console.log('[POST] /api/register/healthcare body=', req.body);
-  const parsed = healthcareSchema.parse(req.body);
-  const id = await registerHealthcare(parsed);
+const registerDoctorHandler = wrap(async (req, res) => {
+  console.log('[POST] /api/register/doctor body=', req.body);
+  const parsed = doctorSchema.parse(req.body);
+  const id = await registerDoctor(parsed);
   res.status(201).json({ id });
-}));
+});
+router.post('/doctor', registerDoctorHandler);
+router.post('/healthcare', registerDoctorHandler);
 
-router.get('/by-email/:email', wrap( async (req, res) => {
+router.get('/by-email/:email', wrap(async (req, res) => {
   const email = decodeURIComponent(req.params.email);
   const user = await getUserByEmail(email);
   if (!user) return res.status(404).json({ error: 'Not found' });
-  const { passwordHash, ...safe } = user as any;
-  res.json(safe);
+  res.json(safeUser(user));
 }));
 
 router.get('/debug/all', wrap(async (_req, res) => {
   const snap = await db.collection('users').limit(50).get();
-  const list = snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => {
-    const { passwordHash, ...rest } = d.data() as any;
-    return { id: d.id, ...rest };
-  });
+  const list = snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => ({
+    id: d.id,
+    ...safeUser(d.data() as any),
+  }));
   res.json(list);
 }));
 
-// List users (safe) - optional excludeId query to omit current user
+// List users (safe) - optional excludeId query to omit current user and optional role filter
 router.get('/users', wrap(async (req, res) => {
   const excludeId = (req.query.excludeId as string) || '';
+  const roleFilter = (req.query.role as string) || '';
+
   const snap = await db.collection('users').limit(200).get();
   const list = snap.docs
     .map((d: FirebaseFirestore.QueryDocumentSnapshot) => {
-      const { passwordHash, ...rest } = d.data() as any;
-      return { id: d.id, ...rest };
+      const data = safeUser(d.data() as any);
+      return { id: d.id, ...data };
     })
-    .filter((u: any) => (excludeId ? u.id !== excludeId : true));
+    .filter((u: any) => (excludeId ? u.id !== excludeId : true))
+    .filter((u: any) => (roleFilter ? u.role === roleFilter : true));
   res.json(list);
 }));
 
 router.get('/id/:id', wrap(async (req, res) => {
   const doc = await db.collection('users').doc(req.params.id).get();
   if (!doc.exists) return res.status(404).json({ error: 'Not found' });
-  const { passwordHash, ...safe } = doc.data() as any;
-  res.json({ id: doc.id, ...safe });
+  res.json({ id: doc.id, ...safeUser(doc.data() as any) });
 }));
 
-// List all registered doctors (healthcare role)
-router.get('/doctors', wrap(async (_req, res) => {
-  const snap = await db.collection('users').where('role','==','healthcare').limit(100).get();
-  const list = snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => {
-    const { passwordHash, ...rest } = d.data() as any;
-    const hc = (rest as any).healthcare || {};
+router.get('/doctors', wrap(async (req, res) => {
+  const locationQuery = ((req.query.location as string) || '').toLowerCase();
+  const snap = await db.collection('users').where('role', '==', 'doctor').limit(150).get();
+  let list = snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => {
+    const data = safeUser(d.data() as any);
+    const docData = (data as any).doctor || {};
     return {
       id: d.id,
-      name: rest.fullName,
-      specialty: hc.profession || hc.license || 'Healthcare',
-      location: hc.location || null,
-      profileImage: rest.profileImage || null,
-      email: rest.email,
+      name: data.fullName,
+      specialty: docData.specialty || docData.licenseNumber || 'Doctor',
+      licenseNumber: docData.licenseNumber || null,
+      location: docData.location || data.location || null,
+      hospital: docData.hospital || null,
+      clinicAddress: docData.clinicAddress || null,
+      profileImage: data.profileImage || null,
+      email: data.email,
+      phone: data.phone || null,
+    };
+  });
+  if (locationQuery) {
+    list = list.filter((doc: any) => ((doc.location || '') as string).toLowerCase().includes(locationQuery));
+  }
+  res.json(list);
+}));
+
+router.get('/caregivers', wrap(async (req, res) => {
+  const locationQuery = ((req.query.location as string) || '').toLowerCase();
+  const snap = await db.collection('users').where('role', '==', 'caregiver').limit(200).get();
+  let list = snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => {
+    const data = safeUser(d.data() as any);
+    const cg = (data as any).caregiver || {};
+    return {
+      id: d.id,
+      name: data.fullName,
+      location: cg.location || data.location || null,
+      availability: cg.availability || null,
+      experienceYears: cg.experienceYears || null,
+      skills: cg.skills || [],
+      phone: data.phone || null,
+      email: data.email,
+      profileImage: data.profileImage || cg.image || null,
+    };
+  });
+  if (locationQuery) {
+    list = list.filter((item: any) => ((item.location || '') as string).toLowerCase().includes(locationQuery));
+  }
+  res.json(list);
+}));
+
+router.get('/guardians', wrap(async (_req, res) => {
+  const snap = await db.collection('users').where('role', '==', 'guardian').limit(100).get();
+  const list = snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => {
+    const data = safeUser(d.data() as any);
+    const guardian = (data as any).guardian || {};
+    return {
+      id: d.id,
+      name: data.fullName,
+      relationship: guardian.relationship || null,
+      elderId: guardian.elderId || null,
+      elderEmail: guardian.elderEmail || null,
+      phone: data.phone || null,
+      email: data.email,
+    };
+  });
+  res.json(list);
+}));
+
+router.get('/elders', wrap(async (_req, res) => {
+  const snap = await db.collection('users').where('role', '==', 'elder').limit(150).get();
+  const list = snap.docs.map((d: FirebaseFirestore.QueryDocumentSnapshot) => {
+    const data = safeUser(d.data() as any);
+    const elder = (data as any).elder || {};
+    return {
+      id: d.id,
+      name: data.fullName,
+      guardianContact: elder.guardianContact || data.guardianContact || data.emergencyContact || null,
+      guardianEmail: elder.guardianEmail || data.primaryGuardianEmail || null,
+      caregiverPreference: elder.caregiverPreference || null,
+      phone: data.phone || null,
+      email: data.email,
+      dateOfBirth: elder.dateOfBirth || data.dateOfBirth || null,
     };
   });
   res.json(list);
 }));
 
 router.post('/login', wrap(async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password } = req.body || {};
   if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
   const user = await getUserByEmail(email);
   if (!user) return res.status(401).json({ error: 'Invalid credentials' });
   const ok = await bcrypt.compare(password, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
-  const { passwordHash, ...safe } = user as any;
-  res.json(safe);
+  res.json(safeUser(user));
 }));
 
 router.get('/me', wrap(async (req, res) => {
@@ -145,10 +235,15 @@ router.get('/me', wrap(async (req, res) => {
   if (!email) return res.status(400).json({ error: 'email query required' });
   const user = await getUserByEmail(email);
   if (!user) return res.status(404).json({ error: 'Not found' });
-  const { passwordHash, ...safe } = user as any;
-  res.json(safe);
+  res.json(safeUser(user));
 }));
+
 router.put('/profile', wrap(async (req, res) => {
+  const parsed = profileUpdateSchema.parse(req.body || {});
+  const updated = await updateUserProfile(parsed);
+  res.json({ message: 'Profile updated', user: safeUser(updated) });
+}));
+router.put('/profile/enhanced', wrap(async (req, res) => {
   const parsed = profileUpdateSchema.parse(req.body || {});
   const updated = await updateUserProfile(parsed);
   res.json({ message: 'Profile updated', user: safeUser(updated) });
@@ -161,7 +256,7 @@ router.post('/change-password', wrap(async (req, res) => {
   const ok = await bcrypt.compare(currentPassword, user.passwordHash);
   if (!ok) return res.status(401).json({ error: 'Current password incorrect' });
   const newHash = await bcrypt.hash(newPassword, 10);
-  await db.collection('users').doc(user.id).update({ passwordHash: newHash });
+  await db.collection('users').doc(user.id).update({ passwordHash: newHash, updatedAt: new Date() });
   res.json({ message: 'Password changed' });
 }));
 
@@ -175,45 +270,29 @@ router.post('/profile/image', wrap(async (req, res) => {
   const filename = `profile-images/${user.id || crypto.randomUUID()}.jpg`;
   const bucket = storageBucket.bucket();
   const file = bucket.file(filename);
-  await file.save(buffer, { contentType: 'image/jpeg', public: true, metadata: { cacheControl: 'public,max-age=3600' } });
+  await file.save(buffer, {
+    contentType: 'image/jpeg',
+    public: true,
+    metadata: { cacheControl: 'public,max-age=3600' },
+  });
   const publicUrl = `https://storage.googleapis.com/${bucket.name}/${filename}`;
-  await db.collection('users').doc(user.id).update({ profileImage: publicUrl });
+  await db.collection('users').doc(user.id).update({ profileImage: publicUrl, updatedAt: new Date() });
   res.json({ message: 'Uploaded', url: publicUrl });
 }));
 
-// Enhanced profile update endpoint
-router.put('/profile/enhanced', wrap(async (req, res) => {
-  const { email, fullName, phone, bio, location, dateOfBirth } = req.body || {};
-  if (!email) return res.status(400).json({ error: 'email required' });
-  const user = await getUserByEmail(email);
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  
-  const updates: Record<string, any> = {};
-  if (typeof fullName !== 'undefined') updates.fullName = fullName;
-  if (typeof phone !== 'undefined') updates.phone = phone;
-  if (typeof bio !== 'undefined') updates.bio = bio;
-  if (typeof location !== 'undefined') updates.location = location;
-  if (typeof dateOfBirth !== 'undefined') updates.dateOfBirth = dateOfBirth;
-  updates.updatedAt = new Date();
-
-  await db.collection('users').doc(user.id).update(updates);
-  const updated = await db.collection('users').doc(user.id).get();
-  const { passwordHash, ...safe } = updated.data() as any;
-  res.json({ message: 'Profile updated', user: { id: updated.id, ...safe } });
-}));
-
-// Delete user account (soft delete)
 router.delete('/profile', wrap(async (req, res) => {
   const { email } = req.body || {};
   if (!email) return res.status(400).json({ error: 'email required' });
   const user = await getUserByEmail(email);
   if (!user) return res.status(404).json({ error: 'User not found' });
-  
-  // Soft delete - mark as deleted instead of removing completely
-  await db.collection('users').doc(user.id).update({ 
-    deleted: true, 
+
+  await db.collection('users').doc(user.id).update({
+    deleted: true,
     deletedAt: new Date(),
-    email: `deleted_${user.id}@deleted.com` // Anonymize email
+    email: `deleted_${user.id}@deleted.com`,
+    phone: null,
+    primaryGuardianEmail: null,
+    emergencyContact: null,
   });
   res.json({ message: 'Account deleted successfully' });
 }));

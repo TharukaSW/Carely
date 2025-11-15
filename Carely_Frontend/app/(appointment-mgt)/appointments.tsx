@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity, Image, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import NavigationBar from '@/components/NavigationBar';
 import { router } from 'expo-router';
-import { listAppointments } from '../services/appointments';
+import { listAppointments, listDoctorAppointments, deleteAppointment } from '../services/appointments';
 import { getUser, SessionUser } from '../session';
 import { apiFetch } from '../api';
 
@@ -15,7 +15,9 @@ type UIAppointment = {
   dateLabel: string; // e.g., Sunday, 12 July
   timeRange: string; // e.g., 06.00 PM - 08.00 PM
   location: string;
-  status: 'Pending' | 'Confirmed' | 'Cancelled' | 'Completed';
+  status: 'Pending' | 'Approved' | 'Declined' | 'Cancelled' | 'Completed';
+  patientId?: string;
+  guardianId?: string | null;
 };
 
 export default function AppointmentsScreen() {
@@ -25,6 +27,7 @@ export default function AppointmentsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string>('');
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -36,7 +39,7 @@ export default function AppointmentsScreen() {
           setItems([]);
           return;
         }
-        await loadAppointments(u.id);
+        await loadAppointments(u);
       } catch (e: any) {
         setError(e?.message || 'Failed to load appointments');
       } finally {
@@ -49,7 +52,7 @@ export default function AppointmentsScreen() {
     if (!user?.id) return;
     setRefreshing(true);
     try {
-      await loadAppointments(user.id);
+      await loadAppointments(user);
     } catch (e: any) {
       setError(e?.message || 'Failed to refresh');
     } finally {
@@ -57,17 +60,38 @@ export default function AppointmentsScreen() {
     }
   };
 
-  async function loadAppointments(userId: string) {
+  const handleAddMedicalRecord = (appointment: UIAppointment) => {
+    const patientId = appointment.patientId || (user?.role === 'guardian' ? appointment.guardianId : user?.id) || '';
+    router.push({
+      pathname: '/(medical-history)/new',
+      params: {
+        patientId,
+        appointmentId: appointment.id,
+      },
+    });
+  };
+
+  async function loadAppointments(u: SessionUser) {
     setError('');
-    const raw = await listAppointments(userId);
+    const userId = u.id ? String(u.id) : '';
+    let raw: any[] = [];
+    if (u.role === 'doctor') {
+      raw = await listDoctorAppointments(userId);
+    } else if (u.role === 'guardian') {
+      raw = await listAppointments({ guardianId: userId });
+    } else if (u.role === 'caregiver') {
+      raw = await listAppointments({ caregiverId: userId });
+    } else {
+      raw = await listAppointments({ patientId: userId });
+    }
     // Fetch doctor details for display (name/specialty)
-  const doctorIds: string[] = Array.from(new Set((raw || []).map((a: any) => String(a.doctorId)))).filter(Boolean) as string[];
-    const doctorMap: Record<string, { fullName?: string; specialty?: string }>
+    const doctorIds: string[] = Array.from(new Set((raw || []).map((a: any) => String(a.doctorId)))).filter(Boolean) as string[];
+    const doctorMap: Record<string, { fullName?: string; specialty?: string }> 
       = {};
     await Promise.all(doctorIds.map(async (id: string) => {
       try {
         const d = await apiFetch(`/register/id/${id}`);
-        const specialty = d?.healthcare?.profession || d?.healthcare?.license || 'Healthcare';
+        const specialty = d?.doctor?.specialty || d?.doctor?.licenseNumber || 'Doctor';
         doctorMap[id as string] = { fullName: d?.fullName, specialty };
       } catch {
         doctorMap[id as string] = { fullName: 'Doctor', specialty: 'Healthcare' };
@@ -90,11 +114,14 @@ export default function AppointmentsScreen() {
         dateLabel,
         timeRange: String(a.time || ''),
         location: String(a.location || ''),
-        status: (a.status as any) || 'Pending',
+        status: String(a.status || 'Pending') as UIAppointment['status'],
+        patientId: a.patientId ? String(a.patientId) : undefined,
+        guardianId: a.guardianId ? String(a.guardianId) : null,
       };
     });
 
-    setItems(mapped);
+    const visible = mapped.filter((appt) => appt.status !== 'Cancelled');
+    setItems(visible);
   }
 
   const filtered = useMemo(() => {
@@ -117,6 +144,34 @@ export default function AppointmentsScreen() {
 
   const onAdd = () => router.push('/(appointment-mgt)/choose-doctor');
   const onDetails = (doctorId: string) => router.push({ pathname: '/(appointment-mgt)/doctor-details', params: { doctorId } });
+  const onDelete = (appointment: UIAppointment) => {
+    if (!user?.id) return;
+    if (deletingId) return;
+    Alert.alert(
+      'Cancel Appointment',
+      'Are you sure you want to delete this appointment? This action cannot be undone.',
+      [
+        { text: 'Keep', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeletingId(appointment.id);
+              await deleteAppointment(appointment.id);
+              setItems((prev) => prev.filter((item) => item.id !== appointment.id));
+              await loadAppointments(user);
+              Alert.alert('Cancelled', 'Appointment cancelled successfully.');
+            } catch (err: any) {
+              Alert.alert('Failed', err?.message || 'Could not delete appointment.');
+            } finally {
+              setDeletingId(null);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -184,10 +239,22 @@ export default function AppointmentsScreen() {
                 <TouchableOpacity onPress={() => onDetails(a.doctorId)} style={styles.detailsBtn}>
                   <Text style={styles.detailsText}>View Details</Text>
                 </TouchableOpacity>
+                {(user?.role === 'doctor' || user?.role === 'caregiver') && (
+                  <TouchableOpacity onPress={() => handleAddMedicalRecord(a)} style={[styles.detailsBtn, { backgroundColor: '#2563EB' }]}>
+                    <Text style={styles.detailsText}>Add Record</Text>
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity onPress={() => router.push({ pathname: '/(appointment-mgt)/edit-appointment', params: { id: a.id } })} style={[styles.detailsBtn, { backgroundColor: '#10B981' }]}>
                   <Text style={styles.detailsText}>Edit</Text>
                 </TouchableOpacity>
-              </View>
+                <TouchableOpacity
+                  onPress={() => onDelete(a)}
+                  style={[styles.detailsBtn, { backgroundColor: '#DC2626' }]}
+                  disabled={deletingId === a.id}
+                >
+                  <Text style={styles.detailsText}>{deletingId === a.id ? 'Deleting…' : 'Delete'}</Text>
+                </TouchableOpacity>
+               </View>
             </View>
           ))}
 

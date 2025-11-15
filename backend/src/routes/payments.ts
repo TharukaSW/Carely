@@ -19,7 +19,7 @@ router.post('/charge', wrap(async (req, res) => {
   const payRef = await db.collection('payments').add({ appointmentId, amount, currency, method, status: 'success', createdAt: now });
 
   // Update appointment status to Confirmed
-  await db.collection('appointments').doc(appointmentId).update({ status: 'Confirmed', updatedAt: now });
+  await db.collection('appointments').doc(appointmentId).update({ status: 'Approved', updatedAt: now });
 
   const snap = await payRef.get();
   return res.status(201).json({ id: payRef.id, ...(snap.data() as any) });

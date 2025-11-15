@@ -1,22 +1,23 @@
 import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View, Alert } from 'react-native';
+import { Alert, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+
 import { apiFetch } from '../api';
 
-export default function CaregiverRegisterScreen() {
+export default function ElderRegisterScreen() {
   const [form, setForm] = useState({
     fullName: '',
-    location: '',
-    nic: '',
-    availability: '',
-    experienceYears: '',
-    skills: '',
-    bio: '',
-    phone: '',
+    dateOfBirth: '',
+    gender: '',
+    address: '',
+    guardianContact: '',
+    guardianEmail: '',
+    sosNote: '',
+    caregiverPreference: '',
     email: '',
+    phone: '',
     password: '',
     confirmPassword: '',
-    image: '',
   });
 
   const handleChange = (key: string, value: string) => {
@@ -29,18 +30,13 @@ export default function CaregiverRegisterScreen() {
         if (value !== '') acc[key] = value;
         return acc;
       }, {});
-      if (payload.skills) {
-        payload.skills = String(payload.skills)
-          .split(',')
-          .map((s: string) => s.trim())
-          .filter(Boolean);
-      }
-      await apiFetch('/register/caregiver', {
+
+      await apiFetch('/register/elder', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
-      Alert.alert('Success', 'Caregiver account created! You can sign in now.');
+      Alert.alert('Success', 'Elder account created! You can sign in now.');
       router.replace('/login');
     } catch (err: any) {
       Alert.alert('Registration Failed', err.message || 'Something went wrong');
@@ -51,20 +47,20 @@ export default function CaregiverRegisterScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>Caregiver Registration</Text>
+      <Text style={styles.title}>Elder Registration</Text>
       <View style={styles.form}>
         <TextInput style={styles.input} placeholder="Full Name" placeholderTextColor="#1593B5" value={form.fullName} onChangeText={(t) => handleChange('fullName', t)} />
-        <TextInput style={styles.input} placeholder="Location" placeholderTextColor="#1593B5" value={form.location} onChangeText={(t) => handleChange('location', t)} />
-        <TextInput style={styles.input} placeholder="NIC" placeholderTextColor="#1593B5" value={form.nic} onChangeText={(t) => handleChange('nic', t)} />
-        <TextInput style={styles.input} placeholder="Availability (e.g. Weekdays 9-5)" placeholderTextColor="#1593B5" value={form.availability} onChangeText={(t) => handleChange('availability', t)} />
-        <TextInput style={styles.input} placeholder="Experience in Years" placeholderTextColor="#1593B5" keyboardType="numeric" value={form.experienceYears} onChangeText={(t) => handleChange('experienceYears', t)} />
-        <TextInput style={styles.input} placeholder="Skills (comma separated)" placeholderTextColor="#1593B5" value={form.skills} onChangeText={(t) => handleChange('skills', t)} />
-        <TextInput style={[styles.input, styles.multiline]} multiline numberOfLines={3} placeholder="Short bio (optional)" placeholderTextColor="#1593B5" value={form.bio} onChangeText={(t) => handleChange('bio', t)} />
-        <TextInput style={styles.input} placeholder="Phone Number" placeholderTextColor="#1593B5" keyboardType="phone-pad" value={form.phone} onChangeText={(t) => handleChange('phone', t)} />
+        <TextInput style={styles.input} placeholder="Date of Birth (YYYY-MM-DD)" placeholderTextColor="#1593B5" value={form.dateOfBirth} onChangeText={(t) => handleChange('dateOfBirth', t)} />
+        <TextInput style={styles.input} placeholder="Gender" placeholderTextColor="#1593B5" value={form.gender} onChangeText={(t) => handleChange('gender', t)} />
+        <TextInput style={styles.input} placeholder="Address" placeholderTextColor="#1593B5" value={form.address} onChangeText={(t) => handleChange('address', t)} />
+        <TextInput style={styles.input} placeholder="Guardian Contact / SOS number" placeholderTextColor="#1593B5" value={form.guardianContact} onChangeText={(t) => handleChange('guardianContact', t)} />
+        <TextInput style={styles.input} placeholder="Guardian Email (optional)" placeholderTextColor="#1593B5" keyboardType="email-address" value={form.guardianEmail} onChangeText={(t) => handleChange('guardianEmail', t)} />
+        <TextInput style={styles.input} placeholder="Preferred Caregiver ID (optional)" placeholderTextColor="#1593B5" value={form.caregiverPreference} onChangeText={(t) => handleChange('caregiverPreference', t)} />
+        <TextInput style={[styles.input, styles.multiline]} multiline numberOfLines={3} placeholder="SOS instructions or medical notes (optional)" placeholderTextColor="#1593B5" value={form.sosNote} onChangeText={(t) => handleChange('sosNote', t)} />
         <TextInput style={styles.input} placeholder="Email" placeholderTextColor="#1593B5" keyboardType="email-address" value={form.email} onChangeText={(t) => handleChange('email', t)} />
+        <TextInput style={styles.input} placeholder="Phone" placeholderTextColor="#1593B5" keyboardType="phone-pad" value={form.phone} onChangeText={(t) => handleChange('phone', t)} />
         <TextInput style={styles.input} placeholder="Password" placeholderTextColor="#1593B5" secureTextEntry value={form.password} onChangeText={(t) => handleChange('password', t)} />
         <TextInput style={styles.input} placeholder="Confirm Password" placeholderTextColor="#1593B5" secureTextEntry value={form.confirmPassword} onChangeText={(t) => handleChange('confirmPassword', t)} />
-        <TextInput style={styles.input} placeholder="Profile Image URL (optional)" placeholderTextColor="#1593B5" value={form.image} onChangeText={(t) => handleChange('image', t)} />
       </View>
       <TouchableOpacity style={styles.registerBtn} onPress={handleRegister}>
         <Text style={styles.registerText}>Register</Text>
@@ -108,6 +104,9 @@ const styles = StyleSheet.create({
     color: '#1593B5',
     marginBottom: 16,
   },
+  multiline: {
+    textAlignVertical: 'top',
+  },
   registerBtn: {
     backgroundColor: '#0593B5',
     borderRadius: 20,
@@ -115,9 +114,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     alignItems: 'center',
     marginTop: 8,
-  },
-  multiline: {
-    textAlignVertical: 'top',
   },
   registerText: {
     color: '#fff',

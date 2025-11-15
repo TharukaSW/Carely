@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, TouchableOpacity, ScrollView, Alert, Linking } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -26,6 +26,23 @@ export default function HomeScreen() {
     if (hour < 12) return 'Good Morning';
     if (hour < 17) return 'Good Afternoon';
     return 'Good Evening';
+  };
+
+  const handleEmergencyCall = () => {
+    const emergencyNumber =
+      (user as any)?.emergencyContact ||
+      (user as any)?.guardianContact ||
+      (user as any)?.elder?.guardianContact ||
+      (user as any)?.guardian?.phone ||
+      '';
+    if (!emergencyNumber) {
+      Alert.alert('No Emergency Contact', 'Add a guardian contact in your profile to enable SOS calls.');
+      return;
+    }
+    const formatted = emergencyNumber.startsWith('tel:') ? emergencyNumber : `tel:${emergencyNumber}`;
+    Linking.openURL(formatted).catch(() => {
+      Alert.alert('Call Failed', 'Unable to initiate the emergency call on this device.');
+    });
   };
 
   return (
@@ -79,7 +96,7 @@ export default function HomeScreen() {
                 </LinearGradient>
                 <Text style={styles.actionText}>Health Monitor</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionCard, styles.actionCardEmergency]}>
+              <TouchableOpacity style={[styles.actionCard, styles.actionCardEmergency]} onPress={handleEmergencyCall}>
                 <LinearGradient colors={['#F44336', '#D32F2F']} style={styles.actionGradient}>
                   <Ionicons name="call" size={28} color="#FFFFFF" />
                 </LinearGradient>
@@ -120,7 +137,7 @@ export default function HomeScreen() {
 
           {/* Today's Overview */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Today's Overview</Text>
+            <Text style={styles.sectionTitle}>Today’s Overview</Text>
             <View style={styles.overviewCard}>
               <View style={styles.overviewItem}>
                 <View style={styles.overviewIconContainer}>
