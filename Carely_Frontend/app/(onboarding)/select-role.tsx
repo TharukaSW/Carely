@@ -4,34 +4,25 @@ import React from 'react';
 import { SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const roles = [
-  'Elderly Users',
-  'Family Members',
-  'Healthcare Professionals',
-  'Caregivers',
+  { label: 'Elders', route: '/(user-mgt)/elder-register' },
+  { label: 'Guardians', route: '/(user-mgt)/guardian-register' },
+  { label: 'Doctors', route: '/(user-mgt)/doctor-register' },
+  { label: 'Caregivers', route: '/(user-mgt)/caregiver-register' },
 ];
 
 export default function SelectRoleScreen() {
-  const handleSelect = (role: string) => {
-    if (role === 'Family Members') {
-      router.replace('/(user-mgt)/family-register');
-    } else if (role === 'Elderly Users') {
-      router.replace('/(user-mgt)/elderly-register');
-    } else if (role === 'Healthcare Professionals') {
-      router.replace('/(user-mgt)/healthcare-register');
-    } else if (role === 'Caregivers') {
-      router.replace('/(user-mgt)/caregiver-register');
-    }
-    // Add navigation for other roles as needed
+  const handleSelect = (route: string) => {
+    router.replace(route as any);
   };
 
   return (
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Tell Us Who You Are</Text>
       <View style={styles.list}>
-        {roles.map((role) => (
-          <View key={role} style={styles.row}>
-            <TouchableOpacity style={styles.roleBtn} onPress={() => handleSelect(role)}>
-              <Text style={styles.roleText}>{role}</Text>
+        {roles.map(({ label, route }) => (
+          <View key={label} style={styles.row}>
+            <TouchableOpacity style={styles.roleBtn} onPress={() => handleSelect(route)}>
+              <Text style={styles.roleText}>{label}</Text>
             </TouchableOpacity>
             <View style={styles.iconCircle}>
               <Ionicons name="arrow-forward" size={24} color="#1593B5" />
